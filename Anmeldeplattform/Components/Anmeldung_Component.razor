@@ -1,0 +1,358 @@
+﻿@inject IJSRuntime JSRuntime
+@using System.Text.Json;
+@using System.Net.Mail
+@using System.Net;
+
+
+
+<PageTitle>Start-Up Your Business Lawyer - Anmeldung</PageTitle>
+
+
+
+<Jumbotron Style="background-color:#334152; border-radius:30px; color:white" Margin="Margin.Is4.FromBottom">
+    <JumbotronTitle Size="JumbotronTitleSize.Is4">Start-Up Your Business Lawyer</JumbotronTitle>
+    <JumbotronSubtitle>
+        Treffe Start-Ups und erweitere dein Netzwerk!
+    </JumbotronSubtitle>
+    <Divider></Divider>
+    <Paragraph>
+        Raum: L 007 <br />Begin: 25. Mai 2023, 16.00 Uhr <br />Für Getränke und Speisen ist gesorgt. <br /><b>Sektempfang inklusive!</b>
+    </Paragraph>
+</Jumbotron>
+
+<Validations @ref="validations" Mode="ValidationMode.Manual" Model="@userAnmedlung">
+    <Blazorise.ValidationSummary Label="Folgende Fehler sind aufgetreten:" />
+
+    <Field Horizontal>
+        <FieldLabel ColumnSize="ColumnSize.Is2">Interesse</FieldLabel>
+        <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD" Flex="Flex.JustifyContent.Between" Margin="Margin.Is3.FromBottom">
+
+            <Button Size="Size.Small" Style=@("font-weight:bolder; border-radius: 20px; border: none;" + buttonZusagenStyle) Clicked="@(()=> OnBtnColorChange("Zusagen"))">
+                Zusagen
+                <Icon Name="IconName.CheckCircle" aria-label="Zusagen" />
+            </Button>
+            <Button Size="Size.Small" Style=@("font-weight:bolder; border-radius: 20px; border: none;" + buttonInteressiertStyle) Clicked="@(()=> OnBtnColorChange("Interessiert"))">
+                Interessiert
+                <Icon Name="IconName.QuestionCircle" aria-label="Interessiert" />
+            </Button>
+            <Button Size="Size.Small" Style=@("font-weight:bolder; border-radius: 20px; border: none;" + buttonAbsagenStyle) Clicked="@(()=> OnBtnColorChange("Absagen"))">
+                Absagen
+                <Icon Name="IconName.TimesCircle" aria-label="Absagen" />
+            </Button>
+
+            <Validation>
+                <TextEdit Style="max-width:0px;max-height:0px" Visibility="Visibility.Invisible" @bind-Text="@userAnmedlung.Interesse" />
+            </Validation>
+
+        </FieldBody>
+    </Field>
+    <Validation>
+        <Field Horizontal>
+            <FieldLabel ColumnSize="ColumnSize.Is2">Fachsemester</FieldLabel>
+            <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+                <Select Style="border-radius: 20px; border: none;" TValue="int" @bind-SelectedValue="@userAnmedlung.Fachsemester">
+                    <ChildContent>
+                        <SelectItem Value="0"></SelectItem>
+                        <SelectItem Value="1">1</SelectItem>
+                        <SelectItem Value="2">2</SelectItem>
+                        <SelectItem Value="3">3</SelectItem>
+                        <SelectItem Value="4">4</SelectItem>
+                        <SelectItem Value="5">5</SelectItem>
+                        <SelectItem Value="6">6</SelectItem>
+                        <SelectItem Value="7">7</SelectItem>
+                    </ChildContent>
+                </Select>
+            </FieldBody>
+        </Field>
+    </Validation>
+    <Validation>
+        <Field Horizontal>
+            <FieldLabel ColumnSize="ColumnSize.Is2">vsl. Abschluss</FieldLabel>
+            <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+                <Select Style="border-radius: 20px; border: none;" @bind-SelectedValue="@userAnmedlung.Abschluss">
+                    <ChildContent>
+                        <SelectItem TValue="string"></SelectItem>
+                        <SelectItem TValue="string" Value="@("Bachelor")">Bachelor</SelectItem>
+                        <SelectItem TValue="string" Value="@("Master")">Master</SelectItem>
+                    </ChildContent>
+                </Select>
+            </FieldBody>
+        </Field>
+    </Validation>
+    <Field Horizontal>
+        <FieldLabel ColumnSize="ColumnSize.Is2">CV hochladen</FieldLabel>
+        <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+            <RadioGroup TValue="bool"
+                        Name="CV"
+                        CheckedValue="@userAnmedlung.CVSend"
+                        CheckedValueChanged="@OnCheckedValueChanged">
+                <Radio Value="@(true)">Ja</Radio>
+                <Radio Value="@(false)">Nein</Radio>
+            </RadioGroup>
+        </FieldBody>
+    </Field>
+    <Field Horizontal>
+        <FieldLabel ColumnSize="ColumnSize.Is2">Anregungen</FieldLabel>
+        <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+            <MemoEdit @bind-Text="@userAnmedlung.Anregungen" Style="border-radius: 20px; border: none;" Rows="5" MaxLength=500 />
+        </FieldBody>
+    </Field>
+    <Validation>
+        <Field Horizontal>
+            <FieldBody ColumnSize="ColumnSize.Is12">
+                <Check TValue="bool" @bind-Checked="@userAnmedlung.DatenschutzOk">
+                    <Link To="https://www.htwg-konstanz.de/datenschutzerklaerung" Target="Target.Blank">
+                    Ich habe die Datenschutzerklärung gelesen und stimme dieser zu.
+                    </Link>
+                </Check>
+            </FieldBody>
+        </Field>
+    </Validation>
+
+
+
+
+    <Modal @ref="modalRef" Closing="@OnModalClosing">
+        <ModalContent Style="border-radius:30px; background-color:#dde6eb;"
+                        Centered>
+            <ModalHeader>
+                <ModalTitle>CV Vorregistrierung</ModalTitle>
+                <CloseButton />
+            </ModalHeader>
+            <ModalBody>
+                <Field>
+                    <FieldLabel>E-Mail-Adresse</FieldLabel>
+                    @if (userAnmedlung.CVSend)
+                    {
+                        <Validation>
+                            <TextEdit Style="border-radius: 20px; border: none;" @bind-Text="@userAnmedlung.Email">
+                                <Feedback>
+                                    <ValidationNone>Bitte gib eine gültige Email-Adresse ein unter der wir dich kontaktieren können.</ValidationNone>
+                                    <ValidationError />
+                                </Feedback>
+                            </TextEdit>
+                        </Validation>
+                    }
+                </Field>
+            </ModalBody>
+            <ModalFooter>
+                <Button Color="Color.Primary" Style="border-radius: 20px; border: none;" Clicked="@SaveCloseModal">Bestätigen</Button>
+                <Button Color="Color.Secondary" Style="border-radius: 20px; border: none;" Clicked="@CloseModal">Abbrechen</Button>
+            </ModalFooter>
+        </ModalContent>
+    </Modal>
+
+</Validations>
+
+<Field Style="height:52px" Flex="Flex.JustifyContent.End">
+    <button class="button-confirm" @onclick="confirm">Absenden <Icon Name="IconName.ArrowRight" /></button>
+</Field>
+
+@code {
+
+
+    [Inject] IMessageService MessageService { get; set; }
+    private Modal? modalRef;
+    private Validations? validations;
+
+    private AnmeldeModel userAnmedlung;
+
+    private bool submit;
+
+
+    string buttonZusagenStyle;
+    string buttonInteressiertStyle;
+    string buttonAbsagenStyle;
+
+    bool zusagen;
+    bool interessiert;
+    bool absagen;
+
+
+    //private int selectedAbschluss;
+
+
+    protected override void OnInitialized()
+    {
+        userAnmedlung = new AnmeldeModel
+            {
+                ID = Guid.NewGuid().ToString(),
+                Datum = DateTime.Now.ToString("dd.MM.yyyy HH:mm ", System.Globalization.CultureInfo.GetCultureInfo("de-DE")),
+                Interesse = null,
+                Fachsemester = 0,
+                Abschluss = String.Empty,
+                CVSend = false,
+                DatenschutzOk = false,
+                Email = null,
+                CV = false
+            };
+        zusagen = false;
+        interessiert = false;
+        absagen = false;
+        buttonZusagenStyle = "background-color:#008000;color:black;";
+        buttonInteressiertStyle = "background-color:#f5c71a;color:black;";
+        buttonAbsagenStyle = "background-color:#FF0000;color:black;";
+    }
+
+
+    bool cancelClose;
+
+
+    Task OnCheckedValueChanged(bool value)
+    {
+        userAnmedlung.CVSend = value;
+
+
+        if (userAnmedlung.CVSend)
+        {
+            modalRef.Show();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task CloseModal()
+    {
+        userAnmedlung!.Email = null;
+        userAnmedlung.CVSend = false;
+        cancelClose = false;
+
+        return modalRef.Hide();
+    }
+
+    private Task SaveCloseModal()
+    {
+        if (string.IsNullOrEmpty(userAnmedlung.Email))
+        {
+            cancelClose = true;
+        }
+        else
+        {
+            userAnmedlung.CVSend = true;
+            cancelClose = false;
+        }
+
+        return modalRef.Hide();
+    }
+    private Task OnModalClosing(ModalClosingEventArgs e)
+    {
+        if (e.CloseReason == CloseReason.FocusLostClosing || e.CloseReason == CloseReason.EscapeClosing)
+        {
+            userAnmedlung.CVSend = false;
+        }
+
+        e.Cancel = cancelClose;
+        /*|| e.CloseReason != CloseReason.UserClosing*/
+
+        StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    public void OnBtnColorChange(string selected)
+    {
+        if (selected == "Zusagen" && !zusagen)
+        {
+            userAnmedlung.Interesse = selected;
+            zusagen = !zusagen;
+            absagen = false;
+            interessiert = false;
+
+            buttonZusagenStyle = "background-color:#008000;color:white;";
+            buttonInteressiertStyle = "background-color:#C0C0C0;color:black;";
+            buttonAbsagenStyle = "background-color:#C0C0C0;color:black;";
+
+        }
+        else if (selected == "Interessiert" && !interessiert)
+        {
+            userAnmedlung.Interesse = selected;
+            interessiert = !interessiert;
+            zusagen = false;
+            absagen = false;
+            buttonInteressiertStyle = "background-color:#f5c71a;color:white;";
+            buttonZusagenStyle = "background-color:#C0C0C0;color:black;";
+            buttonAbsagenStyle = "background-color:#C0C0C0;color:black;";
+
+        }
+        else if (selected == "Absagen" && !absagen)
+        {
+            userAnmedlung.Interesse = selected;
+            absagen = !absagen;
+            zusagen = false;
+            interessiert = false;
+            buttonAbsagenStyle = "background-color:#FF0000;color:white;";
+            buttonInteressiertStyle = "background-color:#C0C0C0;color:black;";
+            buttonZusagenStyle = "background-color:#C0C0C0;color:black;";
+
+        }
+        else
+        {
+            userAnmedlung.Interesse = null;
+            absagen = false;
+            zusagen = false;
+            interessiert = false;
+            buttonZusagenStyle = "background-color:#008000;color:black;";
+            buttonInteressiertStyle = "background-color:#f5c71a;color:black;";
+            buttonAbsagenStyle = "background-color:#FF0000;color:black;";
+        }
+    }
+
+    public async Task confirm()
+    {
+
+        if (await validations!.ValidateAll())
+        {
+
+
+            var options = new JsonSerializerOptions()
+                    {
+                        WriteIndented = true
+                    };
+            string jsonString = JsonSerializer.Serialize(userAnmedlung, options);
+            string jsonPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen", userAnmedlung.ID + ".json");
+
+            await using (FileStream createStream = File.Create(jsonPath))
+            {
+                await JsonSerializer.SerializeAsync(createStream, userAnmedlung);
+            };
+
+
+
+            if (userAnmedlung.CVSend)
+            {
+                await MessageService.Success("Deine Daten wurden übermittelt.<br> Wir werden uns bald per Emial wieder bei dir melden!<br><br><br>ID: " + userAnmedlung.ID, "Danke!");
+
+                string body = "Hey du, "+
+                            "hier ist dein Zugangscode um deinen Lebenslauf hochzuladen: \n"+
+                            userAnmedlung.ID + "\n\n " +
+                            "Deinen Lebenslauf kannst du über folgende Seite hochladen: \n"+
+                            "https://umfrage.azurewebsites.net/Upload \n\n\n "+
+                            "Bitte beachte, dass du bei uns nur PDF-Dateien mit maximal 10 MB hochladen kannst.\n"+
+                            "Du kannst jedoch nur eine Datei hochladen. Solltest du deine Datei aktualisieren wollen, "+
+                            "kannst du über den Link und über deinen persönlichen Zugangscode einfach eine aktuelle Datei hochladen. \n\n"+
+                            "Sobald wir alle CVs gesammelt haben, werden wir diese an die teilnehmenden Unternehmen weiterreichen. \n\n"+
+                            "Wir freuen uns schon dich auf unserer Veranstaltung zu sehen. \n\n"+
+                            "Dein Start-Up Your Business Lawyer-Team!";
+
+                using (var message = new MailMessage("startup-your-business-lawyer@web.de", userAnmedlung.Email!, "CV Hochladen - Start-Up Your Business Lawyer", body))
+                {
+
+                    message.Body = body;
+
+                    using (var smtpClient = new SmtpClient("smtp.web.de", 587))
+                    {
+                        smtpClient.EnableSsl = true;
+                        smtpClient.UseDefaultCredentials = false;
+                        smtpClient.Credentials = new NetworkCredential("startup-your-business-lawyer@web.de", "HTWG_WRB_2023");
+                        await smtpClient.SendMailAsync(message);
+                    }
+                }
+            }
+            else
+            {
+                await MessageService.Success("Deine Daten wurden übermittelt!<br><br><br>ID: " + userAnmedlung.ID, "Danke!");
+
+            }
+        }
+    }
+}

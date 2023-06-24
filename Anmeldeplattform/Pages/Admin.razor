@@ -1,0 +1,371 @@
+﻿@page "/admin"
+@inject IConfiguration configuration;
+@inject IJSRuntime js
+
+<PageTitle>Admin-Bereich</PageTitle>
+
+@if(!login) {
+
+    <Field Horizontal>
+        <FieldLabel ColumnSize="ColumnSize.Is2">Benutzer</FieldLabel>
+        <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+        <TextEdit @bind-Text="@user" Role="TextRole.Email" />
+        </FieldBody>
+    </Field>
+
+<Field Horizontal>
+    <FieldLabel ColumnSize="ColumnSize.Is2">Password</FieldLabel>
+    <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+        <TextEdit @bind-Text="@password" Role="TextRole.Password" />
+    </FieldBody>
+</Field>
+
+    <Field Style="height:52px" Flex="Flex.JustifyContent.End">
+        <button class="button-confirm" @onclick="checkUser">Login <Icon Name="IconName.ArrowRight" /></button>
+    </Field>
+}
+else
+{
+    @if (userVerwaltung || umfragenVerwaltungStudent || statistik || umfragenVerwaltungVortragende || umfrageS || umfrageV || anmeldung)
+    {
+        <Field Position="Position.Fixed" Style="height:52px;z-index:99999" Flex="Flex.JustifyContent.Start">
+            <button style="width:50px;" class="button-confirm" @onclick="goBack"><Icon Name="IconName.ArrowLeft" /></button>
+            @*<Button Background="Background.Dark" TextColor="TextColor.White" Style="border-radius:30px;" Size="Size.Large" Clicked="goBack"><Icon Name="IconName.ArrowLeft" /></Button>*@
+        </Field>
+    }
+
+
+    <div style="position: relative; width: 100%; height: 0; padding-bottom: 50vh; overflow: hidden; will-change: transform; border-radius:30px">
+        <iframe allowfullscreen loading="lazy" src="https://wepik.com/share/69c649a6-9267-4480-a54f-b72337218512?embed=1" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;"></iframe>
+    </div>
+    <br />
+
+    <Accordion>
+    <Collapse Visible="@gantDiagram" Style="border-radius:30px">
+        <CollapseHeader Style="border-radius:30px">
+            <Heading Size="HeadingSize.Is5">
+                <AccordionToggle>Gantt-Diagramm</AccordionToggle>
+            </Heading>
+        </CollapseHeader>
+        <CollapseBody>
+            <div style="position: relative; width: 100%; height: 0; padding-bottom: 50vh; overflow: hidden; will-change: transform;">
+            <iframe allowfullscreen loading="lazy" src="@("/Assets/Gantt-Diagramm.pdf")" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;padding: 2%;"></iframe>
+                </div>
+        </CollapseBody>
+    </Collapse>
+    <Collapse Visible="@projectPlan" Style="border-radius:30px">
+        <CollapseHeader Style="border-radius:30px">
+            <Heading Size="HeadingSize.Is5">
+                <AccordionToggle>Meister Task</AccordionToggle>
+            </Heading>
+        </CollapseHeader>
+        <CollapseBody>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+           <Figure onclick="@(async ()=> await js.InvokeVoidAsync("open", "https://www.meistertask.com/app/project/yjZJcVu6/start-up-your-business-lawyer", "_blank"))">
+                            <FigureImage Source="@("/Assets/MeisterTask.png")" AlternateText="MeisterTask" Rounded/>       
+                    </Figure>
+                    </Field>
+        </CollapseBody>
+    </Collapse>
+</Accordion>
+<br />
+
+    @if (!userVerwaltung && !umfragenVerwaltungStudent && !statistik && !umfragenVerwaltungVortragende && !umfrageS && !umfrageV && !statistik && !anmeldung)
+    {
+        <Fields>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(()=>NavigateToUser())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgUser" AlternateText="User"    
+                        Rounded
+                            />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">User verwalten</FigureCaption>
+                        </Figure>
+                    </div>
+                </button>
+            </Field>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(()=>NavigateToUmfrageStudent())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgUmfrageStudent" AlternateText="UmfrageStudent"
+                                                  Rounded
+                            />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Studenten-Umfragen verwalten</FigureCaption>
+                    </Figure>
+                </div>
+            </button>
+        </Field>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(()=>NavigateToUmfrageVortragende())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgUmfrageVortragender" AlternateText="UmfrageVortragende"
+                                                  Rounded />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Vortragende-Umfragen verwalten</FigureCaption>
+                        </Figure>
+                    </div>
+                </button>
+            </Field>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(()=>NavigateToStatistik())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgStatistik" AlternateText="Statistik"
+                                                  Rounded
+                            />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Statistik abrufen</FigureCaption>
+                    </Figure>
+                </div>
+            </button>
+        </Field>
+        </Fields>
+        <br />
+        <Fields Flex="Flex.JustifyContent.Center">
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(async ()=>await NavigateToUmfragenStudent())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgUmfrageS" AlternateText="Studentenumfrage"
+                                                  Rounded />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Studentenumfrage anzeigen</FigureCaption>
+                        </Figure>
+                    </div>
+                </button>
+            </Field>
+        <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(async ()=>await NavigateToUmfragenVortragende())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgUmfrageV" AlternateText="Vortragendenumfrage"
+                                                  Rounded />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Vortragendenumfrage anzeigen</FigureCaption>
+                        </Figure>
+                    </div>
+                </button>
+            </Field>
+            <Field ColumnSize="ColumnSize.Is3.OnFullHD.Is3.OnWidescreen.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is12" Flex="Flex.JustifyContent.Center">
+                <button class="button-load" @onclick="@(async ()=>await NavigateToAnmeldung())">
+                    <div class="txt">
+                        <Figure Size="FigureSize.Is256x256">
+                            <FigureImage Source="@imgAnmeldung" AlternateText="Anmeldung"
+                                                  Rounded />
+                            <FigureCaption TextColor="TextColor.White" Style="font-family:'Century Gothic'">Anmeldung anzeigen</FigureCaption>
+                        </Figure>
+                    </div>
+                </button>
+            </Field>
+        </Fields>
+    }
+    else if (userVerwaltung && !umfragenVerwaltungStudent && !statistik && !umfragenVerwaltungVortragende && !umfrageS && !umfrageV && !anmeldung)
+    {
+        <UserVerwaltung_Component />
+    }
+    else if (umfragenVerwaltungStudent && !userVerwaltung && !statistik && !umfragenVerwaltungVortragende && !umfrageS && !umfrageV && !anmeldung)
+    {
+        <UmfragenVerwaltungStudent_Component  />
+    }
+    else if (umfragenVerwaltungVortragende && !userVerwaltung && !statistik && !umfragenVerwaltungStudent && !umfrageS && !umfrageV && !anmeldung)
+    {
+        <UmfragenVerwaltungVortragende_Component />
+    }
+    else if (!umfragenVerwaltungVortragende && !userVerwaltung && statistik && !umfragenVerwaltungStudent && !umfrageS && !umfrageV && !anmeldung)
+    {
+        <Statistik_Component typ="@("JaNein")" zielgruppe="@("student")" />
+    }
+    else if (!umfragenVerwaltungVortragende && !userVerwaltung && !statistik && !umfragenVerwaltungStudent && umfrageS && !umfrageV && !anmeldung)
+    {
+        <UmfrageStundenten/>
+    }
+    else if (!umfragenVerwaltungVortragende && !userVerwaltung && !statistik && !umfragenVerwaltungStudent && !umfrageS && umfrageV && !anmeldung)
+    {
+        <UmfrageStartUp />
+    }
+    else if (!umfragenVerwaltungVortragende && !userVerwaltung && !statistik && !umfragenVerwaltungStudent && !umfrageS && !umfrageV && anmeldung)
+    {
+        <Anmeldung_Component />
+    }else
+    {
+        <Text>Irgendwas stimmt nicht!</text>
+    }
+
+}
+
+
+@code {
+    [Inject] INotificationService NotificationService { get; set; }
+
+    private string user;
+    private string password;
+
+    private bool login;
+
+    private bool userVerwaltung;
+
+    private bool umfragenVerwaltungStudent;
+    private bool umfragenVerwaltungVortragende;
+
+    private bool statistik;
+
+    private bool umfrageS;
+    private bool umfrageV;
+
+    private bool anmeldung;
+
+    bool gantDiagram = false;
+    bool projectPlan = false;
+
+
+
+    private Task checkUser()
+    {
+        if (user == configuration["Admin:User"] && password == configuration["Admin:Password"])
+        {
+            login = true;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+        else
+        {
+            return NotificationService.Error("Wrong user or password!", "Error");
+        }
+    }
+
+    private async Task goBack()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungStudent = false;
+        umfragenVerwaltungVortragende = false;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = false;
+        await Task.CompletedTask;
+    }
+
+    private async Task nextSite()
+    {
+        if(userVerwaltung)
+        {
+            userVerwaltung = false;
+            umfragenVerwaltungStudent = true;
+            umfragenVerwaltungVortragende = false;
+            statistik = false;
+        } else if (umfragenVerwaltungStudent)
+        {
+            userVerwaltung = false;
+            umfragenVerwaltungStudent = false;
+            umfragenVerwaltungVortragende = true;
+            statistik = false;
+        }
+        else if (umfragenVerwaltungVortragende)
+        {
+            userVerwaltung = false;
+            umfragenVerwaltungStudent = false;
+            umfragenVerwaltungVortragende = false;
+            statistik = true;
+        }else
+        {
+            userVerwaltung = true;
+            umfragenVerwaltungStudent = false;
+            umfragenVerwaltungVortragende = false;
+            statistik = false;
+        }
+
+        await Task.CompletedTask;
+    }
+
+
+    string imgUser = "/Assets/User.png";
+    string imgUmfrage = "/Assets/Umfrage.png";
+    string imgUmfrageV = "/Assets/UmfrageV.png";
+    string imgUmfrageS = "/Assets/UmfrageS.png";
+    string imgUmfrageVortragender = "/Assets/Vortragender.png";
+    string imgUmfrageStudent = "/Assets/Student.png";
+    string imgStatistik = "/Assets/Statistik.png";
+    string imgAnmeldung = "/Assets/Anmeldung.png";
+
+
+    private void NavigateToUser()
+    {
+        userVerwaltung = true;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = false;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = false;
+        StateHasChanged();
+    }
+
+    private void NavigateToUmfrageStudent()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = true;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = false;
+        StateHasChanged();
+    }
+
+    private void NavigateToUmfrageVortragende()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungStudent = false;
+        umfragenVerwaltungVortragende = true;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = false;
+        StateHasChanged();
+    }
+
+    private void NavigateToStatistik()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = false;
+        statistik = true;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = false;
+        StateHasChanged();
+    }
+    private async Task NavigateToUmfragenVortragende()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = false;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = true;
+        anmeldung = false;
+        StateHasChanged();
+    }
+    private async Task NavigateToUmfragenStudent()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = false;
+        statistik = false;
+        umfrageS = true;
+        umfrageV = false;
+        anmeldung = false;
+        StateHasChanged();
+    }
+    private async Task NavigateToAnmeldung()
+    {
+        userVerwaltung = false;
+        umfragenVerwaltungVortragende = false;
+        umfragenVerwaltungStudent = false;
+        statistik = false;
+        umfrageS = false;
+        umfrageV = false;
+        anmeldung = true;
+        StateHasChanged();
+    }
+
+}

@@ -1,0 +1,310 @@
+﻿@using System.Text.Json;
+@using System.IO;
+@using System.IO.Compression;
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Admin-Bereich</PageTitle>
+
+<Field Style="height:52px" Flex="Flex.JustifyContent.End">
+    <Button Size="Size.Large" Clicked="refresh"><Icon Name="IconName.Undo" /></Button>
+</Field>
+
+
+<DataGrid TItem="AnmeldeModel"
+          Data="@userAnmeldungen"
+          SelectedRowChanged="OnSelectedRowChanged"
+          Responsive
+          ShowPager
+          ShowPageSizes
+          PageSize="@selectedPageSize"
+          Editable
+          RowUpdated="()=> saveEdit()"
+          EditMode=DataGridEditMode.Popup
+          PagerPosition="DataGridPagerPosition.Bottom"
+          PagerOptions="new(){ ButtonSize=Size.Default }"
+          Sortable
+          Filterable
+          AggregateData="userAnmeldungen"
+          SortMode="DataGridSortMode.Multiple">
+    <DataGridColumns>
+        <DataGridCommandColumn ClearFilterCommandAllowed="false" NewCommandAllowed="false" EditCommandAllowed="false" DeleteCommandAllowed="false">
+            <SaveCommandTemplate>
+                <Button ElementId="btnSave" Type="ButtonType.Submit" PreventDefaultOnSubmit Color="Color.Primary" Clicked="@context.Clicked">Speichern</Button>
+            </SaveCommandTemplate>
+            <CancelCommandTemplate>
+                <Button ElementId="btnCancel" Color="Color.Secondary" Clicked="@context.Clicked">Abbrechen</Button>
+            </CancelCommandTemplate>
+            </DataGridCommandColumn>
+            <DataGridColumn Field="@nameof(AnmeldeModel.ID)" Caption="ID" />
+            <DataGridSelectColumn CustomFilter="@OnInteresseCustomFilter" Field="@nameof( AnmeldeModel.Interesse )" Caption="Interesse" Editable>
+            <FilterTemplate>
+                <Select TValue="string" SelectedValue="@selectedInteresseFilter" SelectedValueChanged="@(value => { selectedInteresseFilter = value; context.TriggerFilterChange( selectedInteresseFilter ); })">
+                    <SelectItem Value="@("*")"></SelectItem>
+                    <SelectItem Value="@("Zusagen")">Zusagen</SelectItem>
+                    <SelectItem Value="@("Interessiert")">Interessiert</SelectItem>
+                    <SelectItem Value="@("Absagen")">Absagen</SelectItem>
+                </Select>
+            </FilterTemplate>
+        </DataGridSelectColumn>
+        <DataGridColumn Field="@nameof(AnmeldeModel.Fachsemester)" Caption="Semester" Editable />
+        <DataGridColumn Field="@nameof(AnmeldeModel.Abschluss)" Caption="Abschluss" Editable />
+        <DataGridColumn Field="@nameof(AnmeldeModel.Email)" Caption="Email" Editable />
+        <DataGridColumn Field="@nameof(AnmeldeModel.CV)" Caption="CV" Editable />
+        <DataGridColumn Field="@nameof(AnmeldeModel.Datum)" Caption="Datum" Editable />
+    </DataGridColumns>
+    <ButtonRowTemplate>
+        <Button Color="Color.Secondary" Clicked="context.ClearFilterCommand.Clicked">Filter zurücksetzen</Button>
+        <Button Color="Color.Primary" Disabled="(selectedAnmeldung is null)" Clicked="context.EditCommand.Clicked">Bearbeiten</Button>
+        <Button Color="Color.Danger" Clicked="@(selectedAnmeldung != null? ()=>delete(false) : ()=> delete(true))">@(selectedAnmeldung != null ? "Ausgewählten Löschen" : "Alle Löschen")</Button>
+        </ButtonRowTemplate>
+        <PageButtonTemplate>
+            <div>
+                <Span Style="color:#009b91">
+                    @context.PageNumber
+                </Span>
+            </div>
+        </PageButtonTemplate>
+        <NextPageButtonTemplate><Icon Name="IconName.StepForward" Style="color:#009b91" /></NextPageButtonTemplate>
+        <PreviousPageButtonTemplate><Icon Name="IconName.StepBackward" Style="color:#009b91" /></PreviousPageButtonTemplate>
+        <LastPageButtonTemplate><Icon Name="IconName.Forward" Style="color:#009b91" /></LastPageButtonTemplate>
+        <FirstPageButtonTemplate><Icon Name="IconName.Backward" Style="color:#009b91" /></FirstPageButtonTemplate>
+        <TotalItemsTemplate><Badge Style="background-color:#009b91; color:white">@context.TotalItems total items</Badge></TotalItemsTemplate>
+        <TotalItemsShortTemplate><Badge Style="background-color:#009b91; color:white">@context.TotalItems</Badge></TotalItemsShortTemplate>
+        <ItemsPerPageTemplate></ItemsPerPageTemplate>
+        <PageSelectorTemplate>
+            <Select Style="background-color:#009b91; color:white" @bind-SelectedValue="@(context.CurrentPage)" Size="Size.Medium">
+                @for (int i = context.FirstVisiblePage; i <= context.LastVisiblePage; ++i)
+            {
+                var pageNumber = i;
+                <SelectItem Value="@pageNumber">@pageNumber</SelectItem>
+            }
+        </Select>
+    </PageSelectorTemplate>
+    <PageSizesTemplate>
+        <Select Style="background-color:#009b91; color:white" @bind-SelectedValue="@selectedPageSize" Size="Size.Default">
+            @foreach (var curPageSize in context.PageSizes)
+            {
+                <SelectItem Value="@curPageSize">@curPageSize</SelectItem>
+            }
+        </Select>
+    </PageSizesTemplate>
+</DataGrid>
+
+<Fields>
+    <Field>
+        <FieldBody ColumnSize="ColumnSize.Is12" Flex="Flex.JustifyContent.Between" Margin="Margin.Is3.FromBottom">
+            <Button Size="Size.Small" Clicked="@(()=>generateZIP("Anmeldungen", "json"))" Color="Color.Primary"><Icon Name="IconName.FileDownload" /> Alle JSON Downloaden</Button>
+            <Button Size="Size.Small" Clicked="@(()=>generateZIP("CV", "pdf"))" Color="Color.Primary"><Icon Name="IconName.FilePdf" /> Alle CVs Downloaden </Button>
+        </FieldBody>
+    </Field>
+</Fields>
+
+@if (userAnmeldungen.Exists(x => !String.IsNullOrEmpty(x.Anregungen)))
+{
+    <Card Style="background-color:transparent">
+        <CardBody>
+            <CardTitle Size="3" Flex="Flex.JustifyContent.Center">Kommentare</CardTitle>
+            <Div Flex="Flex.JustifyContent.Center">
+                <div class="loader">
+                    <div>
+                        <ul>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                            <li>
+                                <svg fill="currentColor" viewBox="0 0 90 120">
+                                    <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                </svg>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </Div>
+            @foreach (var kommentar in userAnmeldungen.Select(x => x.Anregungen).Where(x => !String.IsNullOrEmpty(x)))
+            {
+                <CardText Flex="Flex.JustifyContent.Center">
+                    <Field>
+                        <Divider></Divider>
+                        @kommentar
+                    </Field>
+                </CardText>
+            }
+
+        </CardBody>
+    </Card>
+}
+
+
+
+@code {
+    void OnTokenLiveAnmeldungChanged(object sender, EventArgs e) => InvokeAsync(StateHasChanged);
+    void OnTokenLiveCVChanged(object sender, EventArgs e) => InvokeAsync(StateHasChanged);
+    [Inject] IMessageService MessageService { get; set; }
+    [Inject] INotificationService NotificationService { get; set; }
+    private List<AnmeldeModel>? userAnmeldungen;
+    private AnmeldeModel selectedAnmeldung;
+    string selectedInteresseFilter;
+    int selectedPageSize = 5;
+
+    protected override void OnInitialized()
+    {
+        userAnmeldungen = new List<AnmeldeModel>();
+        DirectoryInfo dir = new DirectoryInfo(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen"));
+        FileInfo[] Files = dir.GetFiles("*.json");
+        foreach(var file in Files)
+        {
+            string jsonString = File.ReadAllText(file.FullName);
+            userAnmeldungen.Add(JsonSerializer.Deserialize<AnmeldeModel>(jsonString)!);
+        }
+        userAnmeldungen = userAnmeldungen.OrderByDescending(x => x.Datum).ToList();
+    }
+
+    private bool OnInteresseCustomFilter(object itemValue, object searchValue)
+    {
+        if (searchValue is string interesseFilter)
+        {
+            return interesseFilter == "*" || interesseFilter == itemValue?.ToString();
+        }
+
+        return true;
+    }
+
+
+    private void OnSelectedRowChanged(AnmeldeModel value)
+    {
+        if(selectedAnmeldung == value)
+            selectedAnmeldung = null;
+        else 
+            selectedAnmeldung = value;
+        StateHasChanged();
+    }
+
+    private void refresh()
+    {
+        userAnmeldungen = new List<AnmeldeModel>();
+        DirectoryInfo dir = new DirectoryInfo(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen"));
+        FileInfo[] Files = dir.GetFiles("*.json");
+        foreach (var file in Files)
+        {
+            string jsonString = File.ReadAllText(file.FullName);
+            userAnmeldungen.Add(JsonSerializer.Deserialize<AnmeldeModel>(jsonString)!);
+        }
+        userAnmeldungen = userAnmeldungen.OrderByDescending(x => x.Datum).ToList();
+    }
+
+
+    private async Task generateZIP(string dirName, string type)
+    {
+        try
+        {
+            Guid guidzip = Guid.NewGuid();
+            DirectoryInfo dir = new DirectoryInfo(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", dirName));
+            FileInfo[] Files = dir.GetFiles($"*.{type}");
+            string zipPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", dirName, $"{dirName}_{guidzip.ToString()}.zip");
+            using (File.Create(zipPath)) ;
+
+            using (FileStream zipToOpen = new FileStream(zipPath, FileMode.Open))
+            {
+                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
+                {
+                    foreach (var file in Files)
+                    {
+                        archive.CreateEntryFromFile(file.FullName, $"{file.Name}.{type}");
+                    }
+                }
+            }
+            NavigateToDownload(guidzip, dirName);
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task delete(bool allFiles)
+    {
+        if (allFiles && await MessageService.Confirm("Willst du wirklich alle Daten Löschen?", "Löschen"))
+        {
+            deleteAll("Anmeldungen", "json");
+            deleteAll("CV", "pdf");
+            refresh();
+        }
+        else if (!allFiles && await MessageService.Confirm($"Willst du wirklich den Datensatz mit der ID \"{selectedAnmeldung.ID}\" löschen?", "Löschen"))
+        {
+            deleteOne("Anmeldungen", "json");
+            deleteOne("CV", "pdf");
+            refresh();
+        }
+    }
+
+    private void deleteAll(string dirName, string type)
+    {
+        try
+        {
+            DirectoryInfo dir = new DirectoryInfo(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", dirName));
+            FileInfo[] Files = dir.GetFiles($"*.{type}");
+            foreach (var file in Files)
+            {
+                file.Delete();
+            }
+        }
+        catch { }
+    }
+
+    private void deleteOne(string dirName, string type)
+    {
+        try
+        {
+            if (selectedAnmeldung != null)
+            {
+                if (selectedAnmeldung.ID != null)
+                {
+                    string path = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", dirName, selectedAnmeldung.ID + "." + type);
+                    var fileInfo = new FileInfo(path);
+                    fileInfo.Delete();
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void saveEdit()
+    {
+        //deleteOne("Anmeldungen", "json");
+        var options = new JsonSerializerOptions()
+            {
+                WriteIndented = true
+            };
+        string jsonString = JsonSerializer.Serialize(selectedAnmeldung, options);
+        string jsonPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen", selectedAnmeldung.ID + ".json");
+        File.WriteAllText(jsonPath, jsonString);
+        refresh();
+    }
+  
+
+    private void NavigateToDownload(Guid guid, string dirName)
+    {
+        JSRuntime.InvokeAsync<object>("open", $"download/{guid.ToString()}/{dirName}", "_blank");
+    }
+
+}

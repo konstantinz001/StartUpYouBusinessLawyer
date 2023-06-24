@@ -1,0 +1,231 @@
+﻿@using DB_Transfer.Worker;
+@using DB_Transfer.Model;
+@inject ISqlExecutor _db
+
+
+<Field>
+    <Field Border="Border.Rounded" Flex="Flex.JustifyContent.Between" Background="Background.Dark" TextColor="TextColor.Light">
+        <Button Color="Color.Primary" Clicked="@(async () => await HandleRedraw())">Redraw</Button>
+        <Field>
+            <h3>@(Char.ToUpper(zielgruppe[0]) + zielgruppe.Substring(1) + $" [{typ}]")</h3>
+        </Field>
+
+        <Button Color="Color.Primary" Clicked="@(async () => await next())">Next</Button>
+    </Field>
+
+    <BarChart @ref="barChart" TItem="int" Options="@options" />
+</Field>
+
+@code {
+
+    [Parameter]
+    public string typ { get; set; }
+
+    [Parameter]
+    public string zielgruppe { get; set; }
+
+    List<TransferModel> umfragen;
+
+    int maxID;
+    int minID;
+    List<string> Labels;
+    List<string> Fragen;
+
+    BarChart<int> barChart;
+
+    string überschrift;
+
+    BarChartOptions options = new()
+        {
+            IndexAxis = "x",
+            AspectRatio = 2,
+            Layout = new()
+            {
+                Padding = new()
+                {
+                    Top = 0,
+                    Bottom = 150,
+                }
+            },
+            Elements = new()
+            {
+                Bar = new()
+                {
+                    BorderWidth = 2,
+                }
+            },
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = false,
+                    Position = "right"
+                },
+            }
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await loadData();
+        await HandleRedraw();
+    }
+
+
+    async Task loadData()
+    {
+        if (zielgruppe == "student")
+        {
+            überschrift = "Umfrage Studenten";
+
+            if (typ == "JaNein")
+            {
+                umfragen = (await _db.getUmfragenStudent()).Where(x => x.Typ == "JaNein").OrderBy(x => x.UmfragenID).ToList();
+            }
+            else if (typ == "Punkte")
+            {
+                umfragen = (await _db.getUmfragenStudent()).Where(x => x.Typ == "Punkte").OrderBy(x => x.UmfragenID).ToList();
+            }
+            else
+                umfragen = (await _db.getUmfragenStudent()).Where(x => x.Typ == "StartupKlassisch").OrderBy(x => x.UmfragenID).ToList();
+        } else
+        {
+            überschrift = "Umfrage Vortragende";
+            if (typ == "JaNein")
+            {
+                umfragen = (await _db.getUmfragenVortragende()).Where(x => x.Typ == "JaNein").OrderBy(x => x.UmfragenID).ToList();
+            }
+            else if (typ == "Punkte")
+            {
+                umfragen = (await _db.getUmfragenVortragende()).Where(x => x.Typ == "Punkte").OrderBy(x => x.UmfragenID).ToList();
+            }
+            else
+                umfragen = (await _db.getUmfragenVortragende()).Where(x => x.Typ == "Beschäftigungsart").OrderBy(x => x.UmfragenID).ToList();
+        }
+        if (umfragen == null)
+        {
+            await next();
+        }
+        else if (umfragen.Count == 0)
+        {
+            await next();
+        } 
+
+        minID = umfragen.Select(x => x.UmfragenID).Min();
+        maxID = umfragen.Select(x => x.UmfragenID).Max();
+
+        Labels = new List<string>();
+        Fragen = new List<string>();
+        for (int i = minID; i <= maxID; i++)
+        {
+            @if (!string.IsNullOrEmpty(umfragen.Where(x => x.UmfragenID == i).Select(x => x.Frage).FirstOrDefault()))
+            {
+                Labels.Add($"Frage {i}");
+                Fragen.Add(umfragen.Where(x => x.UmfragenID == i).Select(x => x.Frage).FirstOrDefault()!);
+            }
+        }
+    }
+
+    async Task next()
+    {
+        if(zielgruppe == "student") {
+            if (typ == "JaNein")
+                typ = "Punkte";
+            else if (typ == "Punkte")
+                typ = "StartupKlassisch";
+            else{
+                zielgruppe = "vortragende";
+                typ = "JaNein";
+            }
+        } else
+        {
+            if (typ == "JaNein")
+                typ = "Punkte";
+            else if (typ == "Punkte")
+                typ = "Beschäftigungsart";
+            else
+            {
+                zielgruppe = "student";
+                typ = "JaNein";
+            }
+        }
+
+
+        await loadData();
+        await HandleRedraw();
+    }
+
+
+    async Task HandleRedraw()
+    {
+        await barChart.Clear();
+
+
+        @if (typ == "JaNein")
+        {
+            await barChart.AddLabelsDatasetsAndUpdate(Fragen,
+               GetBarChartDataset("Ja"),
+               GetBarChartDataset("Nein"));
+        }
+        else if (typ == "Punkte")
+        {
+            await barChart.AddLabelsDatasetsAndUpdate(Fragen,
+                GetBarChartDataset("1"),
+                GetBarChartDataset("2"),
+                GetBarChartDataset("3"),
+                GetBarChartDataset("4"),
+                GetBarChartDataset("5"),
+                GetBarChartDataset("6"));
+        }
+        else if (typ == "StartupKlassisch")
+        {
+            await barChart.AddLabelsDatasetsAndUpdate(Fragen,
+                GetBarChartDataset("StartUp"),
+                GetBarChartDataset("Klassisch"));
+        } else
+        {
+            await barChart.AddLabelsDatasetsAndUpdate(Fragen,
+                GetBarChartDataset("Festanstellung"),
+                GetBarChartDataset("Werkstudent"),
+                GetBarChartDataset("Praktikum"));
+        }
+    }
+
+    BarChartDataset<int> GetBarChartDataset(string label)
+    {
+        return new BarChartDataset<int>
+            {
+                Label = (typ == "Punkte"? "Sterne: ":"") + label + "\n",
+
+                Data = RandomizeData(label),
+                BackgroundColor = backgroundColors,
+                BorderColor = borderColors,
+            };
+    }
+
+
+
+
+    List<string> backgroundColors = new List<string> { ChartColor.FromRgba(255, 99, 132, 0.2f), ChartColor.FromRgba(54, 162, 235, 0.2f), ChartColor.FromRgba(255, 206, 86, 0.2f), ChartColor.FromRgba(75, 192, 192, 0.2f), ChartColor.FromRgba(153, 102, 255, 0.2f), ChartColor.FromRgba(255, 159, 64, 0.2f) };
+    List<string> borderColors = new List<string> { ChartColor.FromRgba(255, 99, 132, 1f), ChartColor.FromRgba(54, 162, 235, 1f), ChartColor.FromRgba(255, 206, 86, 1f), ChartColor.FromRgba(75, 192, 192, 1f), ChartColor.FromRgba(153, 102, 255, 1f), ChartColor.FromRgba(255, 159, 64, 1f) };
+    Random random = new Random(DateTime.Now.Millisecond);
+
+    List<int> RandomizeData(string label)
+    {
+
+        var tmpList = new List<int>();
+
+        for (int i = minID; i <= maxID; i++)
+        {
+            var umfragenCount = umfragen.Where(x => x.Antwort == label && x.UmfragenID == i).Count();
+            @if (!string.IsNullOrEmpty(umfragen.Where(x => x.UmfragenID == i).Select(x => x.Frage).FirstOrDefault()))
+            {
+                tmpList.Add(umfragenCount);
+            }
+        }
+
+        return tmpList;
+
+
+    }
+}

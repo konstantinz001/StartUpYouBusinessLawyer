@@ -1,0 +1,263 @@
+﻿@using DB_Transfer.Worker;
+@using DB_Transfer.Model;
+@inject ISqlExecutor _db
+
+
+<PageTitle>Admin-Bereich</PageTitle>
+
+
+<Field Style="height:52px" Flex="Flex.JustifyContent.Between">
+    <Button Size="Size.Large" Clicked="refresh"><Icon Name="IconName.Undo" /></Button>
+</Field>
+
+
+@if (umfragen != null)
+{
+
+    <DataGrid TItem="TransferModel"
+          Data="@umfragen"
+          SelectedRowChanged="OnSelectedRowChanged"
+Responsive
+ShowPager
+ShowPageSizes
+          PageSize="@selectedPageSize"
+Editable
+          RowUpdated="()=> saveEdit()"
+          EditMode=DataGridEditMode.Popup
+          PagerPosition="DataGridPagerPosition.Bottom"
+          PagerOptions="new(){ ButtonSize=Size.Default }"
+Sortable
+Filterable
+          AggregateData="umfragen"
+          SortMode="DataGridSortMode.Multiple">
+    <DataGridColumns>
+        <DataGridCommandColumn ClearFilterCommandAllowed="false" NewCommandAllowed="false" EditCommandAllowed="false" DeleteCommandAllowed="false">
+            <SaveCommandTemplate>
+                <Button ElementId="btnSave" Type="ButtonType.Submit"     
+                PreventDefaultOnSubmit Color="Color.Primary" Clicked="@context.Clicked">Speichern</Button>
+                </SaveCommandTemplate>
+                <CancelCommandTemplate>
+                    <Button ElementId="btnCancel" Color="Color.Secondary" Clicked="@context.Clicked">Abbrechen</Button>
+                </CancelCommandTemplate>
+                </DataGridCommandColumn>
+                <DataGridColumn Field="@nameof(TransferModel.ID)" Caption="ID" />
+                <DataGridSelectColumn CustomFilter="@OnUIDCustomFilter" Field="@nameof( TransferModel.UmfragenID )" Caption="UID"  
+        Editable
+            >
+                <FilterTemplate>
+                    <Select TValue="int" SelectedValue="@selectedUIDFilter" SelectedValueChanged="@(value => { selectedUIDFilter = value; context.TriggerFilterChange( selectedUIDFilter ); })">
+                        <SelectItem Value="@(0)"></SelectItem>
+                    @foreach (var item in umfragen!.OrderBy(x => x.UmfragenID).Select(x => x.UmfragenID).Distinct())
+                        {
+                            <SelectItem Value="@item">@item</SelectItem>
+                        }
+                    </Select>
+                </FilterTemplate>
+            </DataGridSelectColumn>
+            <DataGridColumn Field="@nameof(TransferModel.Frage)" Caption="Frage"     
+        Editable
+            />
+            <DataGridColumn Field="@nameof(TransferModel.Antwort)" Caption="Antwort" 
+        Editable
+            />
+            <DataGridSelectColumn CustomFilter="@OnTypCustomFilter" Field="@nameof( TransferModel.Typ )" Caption="Umfragetyp"     
+        Editable
+            >
+                <FilterTemplate>
+                    <Select TValue="string" SelectedValue="@selectedTypFilter" SelectedValueChanged="@(value => { selectedTypFilter = value; context.TriggerFilterChange( selectedTypFilter ); })">
+                        <SelectItem Value="@("*")"></SelectItem>
+                        <SelectItem Value="@("JaNein")">Ja / Nein - Frage</SelectItem>
+                        <SelectItem Value="@("StartupKlassisch")">Startup oder Klassisch</SelectItem>
+                        <SelectItem Value="@("Anmerkungen")">Anmerkungen</SelectItem>
+                    </Select>
+                </FilterTemplate>
+            </DataGridSelectColumn>
+            <DataGridColumn Field="@nameof(TransferModel.Datum)" Caption="Datum"   
+        Editable
+            />
+        </DataGridColumns>
+        <ButtonRowTemplate>
+            <Button Color="Color.Secondary" Clicked="context.ClearFilterCommand.Clicked">Filter zurücksetzen</Button>
+            <Button Color="Color.Primary" Disabled="(selectedUmfrage is null)" Clicked="context.EditCommand.Clicked">Bearbeiten</Button>
+            <Button Color="Color.Danger" Clicked="@(selectedUmfrage != null? ()=>delete(false) : ()=> delete(true))">@(
+            selectedUmfrage != null ? "Ausgewählten Löschen" : "Alle Löschen"
+            )</Button>
+            </ButtonRowTemplate>
+            <PageButtonTemplate>
+                <div>
+                    <Span Style="color:#009b91">
+                        @context.PageNumber
+                    </Span>
+                </div>
+            </PageButtonTemplate>
+            <NextPageButtonTemplate><Icon Name="IconName.StepForward" Style="color:#009b91" /></NextPageButtonTemplate>
+            <PreviousPageButtonTemplate><Icon Name="IconName.StepBackward" Style="color:#009b91" /></PreviousPageButtonTemplate>
+            <LastPageButtonTemplate><Icon Name="IconName.Forward" Style="color:#009b91" /></LastPageButtonTemplate>
+            <FirstPageButtonTemplate><Icon Name="IconName.Backward" Style="color:#009b91" /></FirstPageButtonTemplate>
+            <TotalItemsTemplate><Badge Style="background-color:#009b91; color:white">@context.TotalItems total items</Badge></TotalItemsTemplate>
+            <TotalItemsShortTemplate><Badge Style="background-color:#009b91; color:white">@context.TotalItems</Badge></TotalItemsShortTemplate>
+            <ItemsPerPageTemplate></ItemsPerPageTemplate>
+            <PageSelectorTemplate>
+                <Select Style="background-color:#009b91; color:white" @bind-SelectedValue="@(context.CurrentPage)" Size="Size.Medium">
+                    @for (int i = context.FirstVisiblePage; i <= context.LastVisiblePage; ++i)
+                {
+                    var pageNumber = i;
+                    <SelectItem Value="@pageNumber">@pageNumber</SelectItem>
+                }
+            </Select>
+        </PageSelectorTemplate>
+        <PageSizesTemplate>
+            <Select Style="background-color:#009b91; color:white" @bind-SelectedValue="@selectedPageSize" Size="Size.Default">
+                @foreach (var curPageSize in context.PageSizes)
+                {
+                    <SelectItem Value="@curPageSize">@curPageSize</SelectItem>
+                }
+            </Select>
+        </PageSizesTemplate>
+    </DataGrid>
+
+
+    @if (umfragen.Where(x => x.Typ == "Anmerkungen").ToList().Exists(x => !String.IsNullOrEmpty(x.Antwort)))
+    {
+        <Card Style="background-color:transparent">
+            <CardBody>
+                <CardTitle Size="3" Flex="Flex.JustifyContent.Center">Anmerkungen</CardTitle>
+                <Div Flex="Flex.JustifyContent.Center">
+                    <div class="loader">
+                        <div>
+                            <ul>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                                <li>
+                                    <svg fill="currentColor" viewBox="0 0 90 120">
+                                        <path d="M90,0 L90,120 L11,120 C4.92486775,120 0,115.075132 0,109 L0,11 C0,4.92486775 4.92486775,0 11,0 L90,0 Z M71.5,81 L18.5,81 C17.1192881,81 16,82.1192881 16,83.5 C16,84.8254834 17.0315359,85.9100387 18.3356243,85.9946823 L18.5,86 L71.5,86 C72.8807119,86 74,84.8807119 74,83.5 C74,82.1745166 72.9684641,81.0899613 71.6643757,81.0053177 L71.5,81 Z M71.5,57 L18.5,57 C17.1192881,57 16,58.1192881 16,59.5 C16,60.8254834 17.0315359,61.9100387 18.3356243,61.9946823 L18.5,62 L71.5,62 C72.8807119,62 74,60.8807119 74,59.5 C74,58.1192881 72.8807119,57 71.5,57 Z M71.5,33 L18.5,33 C17.1192881,33 16,34.1192881 16,35.5 C16,36.8254834 17.0315359,37.9100387 18.3356243,37.9946823 L18.5,38 L71.5,38 C72.8807119,38 74,36.8807119 74,35.5 C74,34.1192881 72.8807119,33 71.5,33 Z"></path>
+                                    </svg>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </Div>
+                @foreach (var kommentar in umfragen!.Where(x => x.Typ == "Anmerkungen").Select(x => x.Antwort))
+                {
+                    <CardText Flex="Flex.JustifyContent.Center">
+                        <Field>
+                            <Divider></Divider>
+                            @kommentar
+                        </Field>
+                    </CardText>
+                }
+
+            </CardBody>
+        </Card>
+    }
+}
+
+
+
+@code {
+    [Inject] IMessageService MessageService { get; set; }
+    [Inject] INotificationService NotificationService { get; set; }
+    private List<TransferModel>? umfragen;
+    private TransferModel selectedUmfrage;
+    string selectedTypFilter;
+    int selectedUIDFilter;
+    int selectedPageSize = 5;
+
+
+    [Parameter]
+    public bool umfragenVerwaltung { get; set; }
+
+    private string user;
+    private string password;
+
+    private bool login;
+
+    private int global;
+
+    protected override async Task OnInitializedAsync()
+    {
+        umfragen = await _db.getUmfragenStudent();
+    }
+
+    private bool OnTypCustomFilter(object itemValue, object searchValue)
+    {
+        if (searchValue is string interesseFilter)
+        {
+            return interesseFilter == "*" || interesseFilter == itemValue?.ToString();
+        }
+
+        return true;
+    }
+
+    private bool OnUIDCustomFilter(object itemValue, object searchValue)
+    {
+        if (searchValue is int uidFilter)
+        {
+            return uidFilter == 0 || uidFilter == (int)itemValue;
+        }
+
+        return true;
+    }
+
+
+    private void OnSelectedRowChanged(TransferModel value)
+    {
+        if (selectedUmfrage == value)
+            selectedUmfrage = null;
+        else
+            selectedUmfrage = value;
+        StateHasChanged();
+    }
+
+    private async Task refresh()
+    {
+        umfragen = await _db.getUmfragenStudent();
+    }
+
+
+
+    private async Task delete(bool allFiles)
+    {
+        if (allFiles && await MessageService.Confirm("Willst du wirklich alle Daten Löschen?", "Löschen"))
+        {
+            await _db.deleteAllUmfrage();
+            await refresh();
+        }
+        else if (!allFiles && await MessageService.Confirm($"Willst du wirklich den Datensatz mit der ID \"{selectedUmfrage.ID}\" löschen?", "Löschen"))
+        {
+            await _db.deleteUmfrageByID(selectedUmfrage.ID);
+            await refresh();
+        }
+    }
+
+
+    private async Task saveEdit()
+    {
+        //deleteOne("Anmeldungen", "json");
+        await _db.updateUmfrage(selectedUmfrage);
+        await refresh();
+    }
+}

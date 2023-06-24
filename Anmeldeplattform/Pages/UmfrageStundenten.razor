@@ -1,0 +1,254 @@
+﻿@page "/umfrageStudent"
+
+@using DB_Transfer.Worker;
+@using DB_Transfer.Model;
+@inject ISqlExecutor _db
+
+
+<PageTitle>Start-Up Your Business Lawyer - Umfrage</PageTitle>
+
+
+@if (!finished)
+{
+
+    <Jumbotron Style="background-color:#334152; border-radius:30px; color:white" Margin="Margin.Is4.FromBottom">
+        <JumbotronTitle Size="JumbotronTitleSize.Is4">Start-Up Your Business Lawyer</JumbotronTitle>
+        <JumbotronSubtitle>
+            Feedback
+        </JumbotronSubtitle>
+        <Divider></Divider>
+        <Paragraph>
+            Du warst auf unserer Veranstaltung "Start-Up Your Business Lawyer"? Dann gib uns bitte ein kurzes Feedback und bewerte uns!
+        </Paragraph>
+    </Jumbotron>
+
+
+    @if (currentPageNum < maxPageNum)
+    {
+        <Field Style="height:52px" Flex="Flex.JustifyContent.End">
+            <button @onclick="@OnNextClicked" class="button-Paging"> <Icon Name="IconName.ArrowRight" /></button>
+        </Field>
+    }
+    else
+    {
+        <Field Style="height:52px" Flex="Flex.JustifyContent.End">
+            <button @onclick="@OnSubmit" class="button-Paging"> <Icon Name="IconName.PaperPlane" /> Übermitteln</button>
+        </Field>
+    }
+
+
+
+
+
+    <Field Horizontal Style="font-family: century-gothic;" Flex="Flex.JustifyContent.Center">
+    <FieldBody Style="max-width:1000px; color:whitesmoke; background:rgba(15, 25, 35,0.7); padding: 3%; border-radius:30px; ">
+
+        @if (numSelected != null)
+            {
+                <Field Margin="Margin.Is5" Horizontal>
+                <FieldLabel ColumnSize="ColumnSize.Is12"><Text Style="font-size:22px; font-family:'Century Gothic';"><i>@numSelected.Frage</i></Text></FieldLabel>
+                <FieldBody ColumnSize="ColumnSize.Is12">
+                    <Rating Style="font-size:5vw; font-family:'Century Gothic'" Flex="Flex.JustifyContent.Between" @bind-SelectedValue="numSelected.Bewertung" Color="Color.Primary" MaxValue="6">
+                        <RatingItem></RatingItem>
+                    </Rating>
+                </FieldBody>
+            </Field>
+            }
+            else if (txtSelected != null)
+            {
+                <Field Margin="Margin.Is5" Horizontal>
+                <FieldLabel ColumnSize="ColumnSize.Is12"><Text Style="font-size:22px; font-family:'Century Gothic'"><i>@txtSelected.Frage</i></Text></FieldLabel>
+                <FieldBody ColumnSize="ColumnSize.Is12">
+                    <br>
+                    @if (txtSelected.Arbeitgeber)
+                        {
+                            <RadioGroup Flex="Flex.JustifyContent.Between" Style="font-size:20px; font-family:'Century Gothic'" TValue="string" Name="colors" @bind-CheckedValue="@txtSelected.Bewertung">
+                                <Radio Size="Size.Large" Value="@("StartUp")">StartUp</Radio>
+                                <Radio Size="Size.Large" Value="@("Klassisch")">Klassisch</Radio>
+                            </RadioGroup>
+                        }
+                        else if (txtSelected.NextStartup_Or_Ja != null)
+                        {
+                            <RadioGroup Flex="Flex.JustifyContent.Between" Style="font-size:20px; font-family:'Century Gothic'" TValue="string" Name="colors" @bind-CheckedValue="@txtSelected.Bewertung">
+                                <Radio Size="Size.Large" Value="@("Ja")">Ja</Radio>
+                                <Radio Size="Size.Large" Value="@("Nein")">Nein</Radio>
+                            </RadioGroup>
+                        }
+                        else
+                        {
+                            <MemoEdit @bind-Text="@txtSelected.Bewertung" TabSize="5"></MemoEdit>
+                        }
+                    </FieldBody>
+                </Field>
+            }
+        </FieldBody>
+    </Field>
+} else
+{
+   @* <Field Style="min-height:100%;margin-top:25%" Horizontal>
+        <FieldBody Flex="Flex.JustifyContent.Center" ColumnSize="ColumnSize.Is12">
+        <Figure Size="FigureSize.Is512x512">
+            <FigureImage Source="@dankeImg" AlternateText="Danke"
+                          Rounded />
+        </Figure>
+        </FieldBody>
+        </Field>*@
+
+    <img src="@dankeImg" alt="Danke" class="center">
+}
+
+
+<style>
+    .center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50vw;
+    }
+</style>
+
+@code {
+    [Inject] IMessageService MessageService { get; set; }
+
+
+    string dankeImg = "/Assets/ThankYou.gif";
+    bool startUpAktuell = false;
+
+    bool startUpGearbeitet = false;
+
+    bool startUpAlsMöglichenArbeitgeber = false;
+    bool changedSichtweise = false;
+
+    bool berufswegStartUp = true;
+
+    int? currentPageNum;
+
+    int maxPageNum;
+
+    bool finished;
+
+    TextUmfrageStudent? txtSelected;
+    NummerUmfrage? numSelected;
+
+    UmfrageListStudent uList;
+
+    List<NummerUmfrage> numList;
+    List<TextUmfrageStudent> txtList;
+
+
+    protected override void OnInitialized()
+    {
+        refresh();
+    }
+
+    private void refresh()
+    {
+        currentPageNum = 1;
+        uList = new UmfrageListStudent();
+        numList = uList.NummerListStudent;
+        txtList = uList.TextListStudent;
+
+        var numMax = numList.Select(x => x.ID).Max();
+        var txtMax = txtList.Select(x => x.ID).Max();
+
+        maxPageNum = new List<int> { numMax, txtMax }.Max();
+
+        findSelectedUmfrageByID(currentPageNum);
+    }
+
+
+    private void findSelectedUmfrageByID (int? id)
+    {
+        txtSelected = txtList.Find(x => x.ID == id); 
+        numSelected = numList.Find(x => x.ID == id);
+    }
+
+    private async Task<int?> findNextID()
+    {
+
+        if (txtSelected != null)
+        {
+            if (txtSelected.Bewertung == "StartUp" || txtSelected.Bewertung == "Ja")
+            {
+                return txtSelected.NextStartup_Or_Ja;
+            }
+            else if (txtSelected.Bewertung == "Klassisch" || txtSelected.Bewertung == "Nein")
+            {
+                return txtSelected.NextKlassisch_Or_Nein;
+            } else
+            {
+                await MessageService.Warning("Bitte fülle vorher die Frage aus!");
+                return txtSelected.ID;
+            }
+        }
+        else if (numSelected != null)
+        {
+            return numSelected.Next;
+        }
+        await MessageService.Error("Etwas ist schiefgelaufen. \nBitte starte die Anwendung neu!");
+        return null;    
+    }
+
+
+    private async Task OnNextClicked()
+    {
+        if(currentPageNum < maxPageNum) {
+            //currentPageNum += 1;
+            currentPageNum = await findNextID();
+        }
+        findSelectedUmfrageByID(currentPageNum);
+
+    }
+
+    private async Task OnSubmit()
+    {
+        List<TransferModel> transferList = new List<TransferModel>();
+
+        foreach (var item in numList)
+        {
+            transferList.Add(new TransferModel
+                {
+                    ID = Guid.NewGuid().ToString(),
+                    UmfragenID = item.ID,
+                    Frage = item.Frage!,
+                    Antwort = item.Bewertung.ToString(),
+                    Typ = "Punkte"
+                });
+        }
+        foreach (var item in txtList)
+        {
+            @if (!string.IsNullOrEmpty(item.Bewertung))
+            {
+                string typ;
+
+                if (item.Bewertung == "Ja" || item.Bewertung == "Nein")
+                    typ = "JaNein";
+                else if (item.Bewertung == "StartUp" || item.Bewertung == "Klassisch")
+                    typ = "StartupKlassisch";
+                else
+                    typ = "Anmerkungen";
+
+                transferList.Add(new TransferModel
+                    {
+                        ID = Guid.NewGuid().ToString(),
+                        UmfragenID = item.ID,
+                        Frage = item.Frage!,
+                        Antwort = item.Bewertung,
+                        Typ = typ,
+                        Zielgruppe = "Student"
+                    });
+            }
+        }
+
+        foreach (var transfer in transferList)
+            await _db.insertUmfrage(transfer);
+
+
+        await MessageService.Success("Vielen Dank!\n Deine Daten wurden übermittelt");
+
+        finished = true;
+
+
+
+    }
+}

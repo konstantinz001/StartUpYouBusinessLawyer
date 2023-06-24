@@ -1,0 +1,36 @@
+﻿@page "/Upload"
+@*@inject StateContainerService stateService;
+@implements IDisposable*@
+
+
+
+<CV_Component />
+
+@*@if(stateService.GetTokeLiveCV())
+{
+    <CV_Component></CV_Component>
+}else
+{
+    <h3>Sorry</h3>
+    <Strong>
+        Seite leider nicht erreichbar!
+    </Strong>
+    <p>
+        Bitte versuch es später noch einmal!
+    </p>
+}
+
+
+@code {
+    void OnTokenLiveChanged(object sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    protected override void OnInitialized()
+    {
+        stateService.StateChangedHandlerCV += OnTokenLiveChanged;
+    }
+
+    void IDisposable.Dispose()
+    {
+        stateService.StateChangedHandlerCV -= OnTokenLiveChanged;
+    }
+}*@

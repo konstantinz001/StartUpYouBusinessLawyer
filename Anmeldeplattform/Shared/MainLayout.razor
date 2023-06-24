@@ -1,0 +1,38 @@
+﻿@inherits LayoutComponentBase
+@*@inject StateContainerService stateService;
+@implements IDisposable*@
+
+<PageTitle>Start-Up Your Business Lawyer</PageTitle>
+
+<Layout Style="swis721, Helvetica, Arial, sans-serif;background-color:#dde6eb; color:black">
+    <Layout Sider>
+        <LayoutSider>
+            <LayoutSiderContent>
+                <NavMenu></NavMenu>
+            </LayoutSiderContent>
+        </LayoutSider>
+        <Layout>
+            <LayoutContent>
+                <main>
+                    <article class="content px-4">
+                        @Body
+                    </article>
+                </main>
+            </LayoutContent>
+        </Layout>
+    </Layout>
+</Layout>
+
+@code {
+    //void OnTokenLiveChanged(object sender, EventArgs e) => StateHasChanged();
+
+    //protected override void OnInitialized()
+    //{
+    //    stateService.StateChangedHandler += OnTokenLiveChanged;
+    //}
+
+    //void IDisposable.Dispose()
+    //{
+    //    stateService.StateChangedHandler -= OnTokenLiveChanged;
+    //}
+}

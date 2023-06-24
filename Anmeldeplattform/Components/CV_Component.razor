@@ -1,0 +1,142 @@
+﻿@using System.Text.Json;
+@using System.IO;
+@using System.IO.Compression;
+
+<PageTitle>Start-Up Your Business Lawyer - CV hochladen</PageTitle>
+
+<Jumbotron Style="background-color:#334152; border-radius:30px; color:white" Margin="Margin.Is4.FromBottom">
+    <JumbotronTitle Size="JumbotronTitleSize.Is4">Start-Up Your Business Lawyer</JumbotronTitle>
+    <JumbotronSubtitle>
+        CV hochladen
+    </JumbotronSubtitle>
+    <Divider></Divider>
+    <Paragraph>
+        Lade deinen CV hoch und connecte dich am dich am 25. Mai direkt mit den teilnehmenden StarUps!
+    </Paragraph>
+</Jumbotron>
+
+
+@if (!signIn)
+{
+
+    <Field Horizontal>
+    <FieldLabel ColumnSize="ColumnSize.Is2">Benutzer</FieldLabel>
+    <FieldBody ColumnSize="ColumnSize.Is12.OnTablet.Is12.OnMobile.Is12.OnDesktop.Is8.OnWidescreen.Is6.OnFullHD">
+        <TextEdit @bind-Text="@id" Role="TextRole.Text" />
+    </FieldBody>
+</Field>
+
+    <Field Style="height:52px" Flex="Flex.JustifyContent.End">
+        <button class="button-confirm" @onclick="checkUser">Login <Icon Name="IconName.ArrowRight" /></button>
+    </Field>
+}
+else
+{
+    <Button Disabled Block Background="@(currentUser.CV ? Background.Success : Background.Danger)">
+        <b>
+       @(currentUser.CV ? "CV hochgeladen" : "CV ausstehend")
+        </b>
+    </Button>
+
+    <h2>Lebenslauf</h2>
+
+    <Field>
+        <FilePicker Filter=".pdf" Upload="OnFileUpload" ShowMode="FilePickerShowMode.List" />
+    </Field>
+}
+
+
+
+
+
+@code {
+    [Inject] INotificationService NotificationService { get; set; }
+    [Inject] IMessageService MessageService { get; set; }
+    private List<AnmeldeModel>? userAnmeldungen;
+    private AnmeldeModel currentUser;
+    bool signIn;
+    string id;
+    MemoryStream stream;
+
+    protected override void OnInitialized()
+    {
+        userAnmeldungen = new List<AnmeldeModel>();
+        DirectoryInfo dir = new DirectoryInfo(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen"));
+        FileInfo[] Files = dir.GetFiles("*.json");
+        foreach (var file in Files)
+        {
+            string jsonString = File.ReadAllText(file.FullName);
+            userAnmeldungen.Add(JsonSerializer.Deserialize<AnmeldeModel>(jsonString)!);
+        }
+    }
+
+
+
+    async Task OnFileUpload(FileUploadEventArgs e)
+    {
+        try
+        {
+            using (stream = new MemoryStream())
+            {
+                await e.File.WriteToStreamAsync(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+
+                if (e.File.Size <= 10000000)
+                {
+                    if (e.File.Type == "application/pdf")
+                    {
+
+                        string path = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "CV", currentUser.ID + ".pdf");
+                        using (FileStream file = new FileStream(path, FileMode.Create, System.IO.FileAccess.Write))
+                            stream.CopyTo(file);
+
+                        var options = new JsonSerializerOptions()
+                            {
+                                WriteIndented = true
+                            };
+
+                        currentUser.CV = true;
+                        string jsonString = JsonSerializer.Serialize(currentUser, options);
+                        string jsonPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "Anmeldungen", currentUser.ID + ".json");
+                        File.WriteAllText(jsonPath, jsonString);
+
+                        await MessageService.Success("Deine Daten wurden übermittelt.<br> Wir sehen uns auf der Veranstaltung!", "Danke!");
+                    }
+                    else
+                    {
+                        await MessageService.Error("Bitte lade deinen Lebenslauf als PDF-Datei hoch!", "Error!");
+                    }
+                }
+                else
+                {
+                    await MessageService.Error("Dein Lebenlauf darf Maximal 7MB groß sein!", "Error!");
+                }
+            }
+        }
+        catch (Exception exc)
+        {
+            Console.WriteLine(exc.Message);
+        }
+        finally
+        {
+            this.StateHasChanged();
+        }
+    }
+
+    private Task checkUser()
+    {
+
+        if (userAnmeldungen != null)
+        {
+            currentUser = userAnmeldungen.Find(x => x.ID == id)!;
+        }
+
+        if (currentUser != null)
+        {
+            signIn = true;
+            StateHasChanged();
+            return NotificationService.Success("", "Success");
+        }
+        return NotificationService.Error("Falsche ID!", "Error");
+    }
+}
